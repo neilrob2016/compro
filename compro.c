@@ -6,7 +6,7 @@
  There are 5 output modes:
     1 - Convert C comments to C++
     2 - Convert C++ comments to C
-    3 - Only output code
+    3 - Only output code (ie strip out comments)
     4 - Only output comments (with linenum if -x option given)
     5 - Print comment line numbers and type
 
@@ -29,7 +29,7 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 
-#define VERSION "20260119"
+#define VERSION "20260120"
 
 enum
 {
@@ -121,14 +121,13 @@ void parseCmdLine(int argc, char **argv)
 	       "       -m <mode 1 to %d>       : Default = %d\n"
 	       "                                   1 - Convert C comments to C++\n"
 	       "                                   2 - Convert C++ comments to C\n"
-	       "                                   3 - Only output code\n"
+	       "                                   3 - Only output code (ie strip out comments)\n"
 	       "                                   4 - Only output comments\n"
 	       "                                   5 - Print comment line numbers and type\n"
 	       "       -x                     : Extra info in mode:\n"
 	       "                                   4 - Print line numbers\n"
 	       "                                   5 - Print header and footer\n"
 	       "                                No effect in other modes.\n"
-	       "                              : other modes.\n"
 	       "       -v                     : Print version info then exit.\n"
 	       "Note:\n"
 	       "   - All arguments are optional.\n"
