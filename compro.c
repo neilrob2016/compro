@@ -7,7 +7,7 @@
     1 - Convert C comments to C++
     2 - Convert C++ comments to C
     3 - Only output code
-    4 - Only output comments (with linenum if -l option given)
+    4 - Only output comments (with linenum if -x option given)
     5 - Print comment line numbers and type
 
  Input is from stdin or a source file given with the -f option. Output is to 
@@ -15,7 +15,9 @@
 
  Compilation: cc -std=c99 compro.c -o compro
 
- Written by Neil Robertson
+ Written by Neil Robertson 
+
+ Email: neilrob16@gmail.com
  ****************************************************************************/
 #include <stdio.h>
 #include <stdlib.h>
