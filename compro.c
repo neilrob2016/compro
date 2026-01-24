@@ -6,9 +6,10 @@
  There are 5 output modes:
     1 - Convert C comments to C++
     2 - Convert C++ comments to C
-    3 - Only output code (ie strip out comments)
-    4 - Only output comments (with linenum if -x option given)
-    5 - Print comment line numbers and type
+    3 - Output code (ie strip out comments)
+    4 - Output comments
+    5 - Output comments with line numbers
+    6 - Print a list of comment types and line numbers 
 
  Input is from stdin or a source file given with the -f option. Output is to 
  stdout, errors to stderr. This has been compiled and tested on Linux and MacOS.
@@ -29,15 +30,16 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 
-#define VERSION "20260121"
+#define VERSION "20260124"
 
 enum
 {
 	MODE_C_TO_CPP,
 	MODE_CPP_TO_C,
-	MODE_ONLY_CODE,
-	MODE_ONLY_COM,
-	MODE_LINENUM,
+	MODE_CODE,
+	MODE_COM,
+	MODE_COM_AND_LINE,
+	MODE_TYPE_AND_LINE,
 	NUM_MODES
 };
 
@@ -127,22 +129,23 @@ void parseCmdLine(int argc, char **argv)
 
 	USAGE:
 	fprintf(stderr,"Usage: %s\n"
-	       "       -f <C/C++ source file> : Default = stdin\n"
-	       "       -m <mode 1 to %d>       : Default = %d\n"
-	       "                                   1 - Convert C comments to C++\n"
-	       "                                   2 - Convert C++ comments to C\n"
-	       "                                   3 - Only output code (ie strip out comments)\n"
-	       "                                   4 - Only output comments\n"
-	       "                                   5 - Print comment line numbers and type\n"
-	       "       -s                     : Strict newline output as they occur in the input\n"
-	       "                                for mode 1. Can lead to extra blank lines as a\n"
-	       "                                newline is always needed after a C++ comment.\n"
-	       "                                No effect in other modes.\n"
-	       "       -x                     : Extra info in mode:\n"
-	       "                                   4 - Print line numbers\n"
-	       "                                   5 - Print header and footer\n"
-	       "                                No effect in other modes.\n"
-	       "       -v                     : Print version info then exit.\n"
+	       "       -f <C/C++ file>  : Default = stdin\n"
+	       "       -m <mode 1 to %d> : Default = %d\n"
+	       "                             1 - Convert C comments to C++.\n"
+	       "                             2 - Convert C++ comments to C.\n"
+	       "                             3 - Output code (ie strip out comments).\n"
+	       "                             4 - Output comments.\n"
+	       "                             5 - Output comments with line number.\n"
+	       "                             6 - Print a list of comment types and line numbers.\n"
+	       "       -s               : Strict newline output as they occur in the input for\n"
+	       "                          mode 1. Can lead to extra blank lines. No effect in\n"
+	       "                          other modes.\n"
+	       "       -x               : Extra info in mode:\n"
+	       "                             5 - Print line numbers for every line of a multi\n"
+	       "                                 line C comment instead of just the first.\n"
+	       "                             6 - Print header and footer.\n"
+	       "                          No effect in other modes.\n"
+	       "       -v               : Print version and build info then exit.\n"
 	       "Note:\n"
 	       "   - All arguments are optional.\n"
 	       "   - All output goes to stdout except errors which go to stderr.\n",
@@ -168,9 +171,9 @@ void openFile(void)
 
 
 #define MODEPUTCHAR1(C) \
-	if (mode != MODE_ONLY_CODE && mode != MODE_LINENUM) putchar(C)
+	if (mode != MODE_CODE && mode != MODE_TYPE_AND_LINE) putchar(C)
 #define MODEPUTCHAR2(C) \
-	if (mode != MODE_ONLY_COM && mode != MODE_LINENUM) putchar(C)
+	if (mode < MODE_COM) putchar(C)
 
 /*** Read the file and parse it ***/
 void processFile(void)
@@ -191,7 +194,7 @@ void processFile(void)
 	c_start_linenum = 0;
 	c_end_linenum = 0;
 
-	if (mode == MODE_LINENUM && extra_info)
+	if (mode == MODE_TYPE_AND_LINE && extra_info)
 	{
 		puts("\nCom#  Type  Line(s)");
 		puts("----  ----  -------");
@@ -217,8 +220,7 @@ void processFile(void)
 		{
 		case '\n':
 			escaped = false;
-			if ((mode != MODE_LINENUM && mode != MODE_ONLY_COM) || 
-			    print_nl || quotes)
+			if (mode < MODE_COM || print_nl || quotes)
 			{
 				putchar('\n');
 				print_nl = false;
@@ -262,11 +264,14 @@ void processFile(void)
 				case MODE_CPP_TO_C:
 					putchar('*');
 					break;
-				case MODE_ONLY_COM:
-					if (extra_info) printLineNum();
+				case MODE_COM:
 					printf("//");
 					break;
-				case MODE_LINENUM:
+				case MODE_COM_AND_LINE:
+					printLineNum();
+					printf("//");
+					break;
+				case MODE_TYPE_AND_LINE:
 					++cpp_cnt;
 					++linecnt;
 					printf("%-4d  C++   %-4d\n",
@@ -277,7 +282,7 @@ void processFile(void)
 				}
 				break;
 			}
-			if (mode == MODE_ONLY_CODE)
+			if (mode == MODE_CODE)
 			{
 				// In this mode we need to look 1 char ahead
 				// as we don't want to output the first '/'
@@ -306,15 +311,16 @@ void processFile(void)
 			case MODE_C_TO_CPP:
 				putchar('/');
 				break;
-			case MODE_ONLY_COM:
+			case MODE_COM_AND_LINE:
 				// Check linenum as don't want to print linenum
 				// if more than 1 C comment on a line.
-				if (extra_info && linenum > c_end_linenum)
-					printLineNum();
+				if (linenum > c_end_linenum) printLineNum();
+				// Fall through
+			case MODE_COM:
 				c_start_linenum = linenum;
 				printf("/*");
 				break;
-			case MODE_LINENUM:
+			case MODE_TYPE_AND_LINE:
 				++c_cnt;
 				// Don't increment line count if we have 2+ C
 				// comments on the same line.
@@ -336,7 +342,7 @@ void processFile(void)
 		prev_c = c;
 		c = getc(fp);
 	}
-	if (mode == MODE_LINENUM)
+	if (mode == MODE_TYPE_AND_LINE)
 	{
 		if (in_c_com) printCComLines();
 		printTotals();
@@ -354,13 +360,16 @@ void inCComment(char c)
 		case MODE_C_TO_CPP:
 			printf("\n//");
 			break;
-		case MODE_ONLY_CODE:
+		case MODE_CODE:
 			break;
-		case MODE_ONLY_COM:
+		case MODE_COM_AND_LINE:
 			putchar('\n');
 			if (extra_info) printLineNum();
 			break;
-		case MODE_LINENUM:
+		case MODE_COM:
+			putchar('\n');
+			break;
+		case MODE_TYPE_AND_LINE:
 			++linecnt;
 			break;
 		default:
@@ -395,7 +404,8 @@ void inCComment(char c)
 		else
 			printWhiteSpace();
 		break;
-	case MODE_ONLY_COM:
+	case MODE_COM:
+	case MODE_COM_AND_LINE:
 		// Want to print newline at end of the line with the comment 
 		// on otherwise C comments will all appear on one line 
 		print_nl = true;
@@ -404,7 +414,7 @@ void inCComment(char c)
 	case MODE_CPP_TO_C:
 		printf("*/");
 		break;
-	case MODE_LINENUM:
+	case MODE_TYPE_AND_LINE:
 		printCComLines();
 		break;
 	default:
@@ -425,8 +435,8 @@ void inCPPComment(char c)
 			puts(" */");
 			in_cpp_com = false;
 			break;
-		case MODE_ONLY_CODE:
-		case MODE_LINENUM:
+		case MODE_CODE:
+		case MODE_TYPE_AND_LINE:
 			break;
 		default:
 			putchar(c);
@@ -462,7 +472,7 @@ void printWhiteSpace(void)
 
 
 
-/*** Check for the start of a comment for MODE_ONLY_CODE ***/
+/*** Check for the start of a comment for MODE_CODE ***/
 bool checkForCommentStart(void)
 {
 	char c = getc(fp);
@@ -477,7 +487,7 @@ bool checkForCommentStart(void)
 
 void printLineNum(void)
 {
-	printf("Line %-3d: ",linenum);
+	printf("%-3d: ",linenum);
 }
 
 
