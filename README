@@ -1,2 +1,23 @@
-A simple C/C++ comments processor and converter. See compro.c header for more
-information.
+C/C++ Comment processor (Compro)
+================================
+A simple single pass, non tokenising parser that processes C and C++/C99
+comments in a C/C++ source file.
+
+There are 6 output modes:
+   1 - Convert C comments to C++
+   2 - Convert C++ comments to C
+   3 - Output code (ie strip out comments)
+   4 - Output comments
+   5 - Output comments with line numbers
+   6 - Print a list of comment types and line numbers
+
+Input is from stdin or a source file given with the -f option. Output is to
+stdout, errors to stderr. This has been compiled and tested on Linux and MacOS
+though there's nothing specific to either and it just uses standard Posix calls
+so should compile on other versions of *nix too.
+
+Compilation: Type "make"
+
+Written by Neil Robertson, 2026
+
+Email: neilrob2016@gmail.com
