@@ -3,13 +3,38 @@ C/C++ Comment processor (Compro)
 A simple single pass, non tokenising parser that processes C and C++/C99
 comments in a C/C++ source file.
 
-There are 6 output modes:
-   1 - Convert C comments to C++
-   2 - Convert C++ comments to C
-   3 - Output code (ie strip out comments)
-   4 - Output comments
-   5 - Output comments with line numbers
-   6 - Print a list of comment types and line numbers
+Usage: compro
+       -f <C/C++ file>  : Default = stdin
+       -m <mode 1 to 6> : Default = 1
+                             1 - Convert C comments to C++.
+                             2 - Convert C++ comments to C.
+                             3 - Output code (ie strip out comments).
+                             4 - Output comments.
+                             5 - Output comments with line numbers.
+                             6 - Print a list of comment types and line numbers.
+       -l               : Modified line processing in mode:
+                             1 - With a multi line C comment attempt to indent
+                                 the replacement C++ comments the same way.
+                             2 - Merge multiple contiguous (seperated only by
+                                 whitespace and a single newline) C++ comments
+                                 into a single C comment.
+                             3 - Don't output a blank line if there is only
+                                 whitespace before a C++ comment on a line. Not
+                                 implemented for C comments.
+                             4 - Print the entire line the comment is on (ie
+                                 include program text).
+                             5 - As mode 4.
+                             6 - No effect.
+       -x               : Extra info in mode:
+                             5 - Print line numbers for every line of a multi
+                                 line C comment instead of just the first.
+                             6 - Print header and footer.
+                          No effect in other modes.
+       -h               : Print this usage.
+       -v               : Print version and build info then exit.
+Note:
+   - All arguments are optional.
+   - All output goes to stdout except errors which go to stderr.
 
 Input is from stdin or a source file given with the -f option. Output is to
 stdout, errors to stderr. This has been compiled and tested on Linux and MacOS
@@ -18,6 +43,6 @@ so should compile on other versions of *nix too.
 
 Compilation: Type "make"
 
-Written by Neil Robertson, 2026
+Copyright (C) Neil Robertson 2026
 
-Email: neilrob2016@gmail.com
+Any comments, bug reports or ideas email me at: neilrob2016@gmail.com

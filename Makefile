@@ -1,7 +1,7 @@
 CC=cc
 ARGS=-Wall -pedantic -std=c99
 ARGS=-Wall -Wextra -pedantic -std=c99
-OBJS=main.o file.o parse_c.o parse_cpp.o print.o
+OBJS=main.o file.o parse_c.o parse_cpp.o support.o
 
 compro: $(OBJS) Makefile
 	cc $(OBJS) -o compro
@@ -18,8 +18,8 @@ parse_c.o: parse_c.c globals.h
 parse_cpp.o: parse_cpp.c globals.h
 	$(CC) $(ARGS) -c parse_cpp.c
 
-print.o: print.c globals.h
-	$(CC) $(ARGS) -c print.c
+support.o: support.c globals.h
+	$(CC) $(ARGS) -c support.c
 
 clean:
 	rm -f compro *.o

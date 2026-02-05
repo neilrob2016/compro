@@ -1,6 +1,6 @@
 /****************************************************************************
  COMPRO
- A simple single pass, non tokenising parser that processes C and C++/C99 
+ A simple single pass, non tokenising parser that processes C and C++/
  comments in a C/C++ source file. See README for more information.
  ****************************************************************************/
 #define MAINFILE
@@ -25,7 +25,6 @@ void parseCmdLine(int argc, char **argv)
 	filename = NULL;
 	mode = MODE_C_TO_CPP;
 	option_l = false;
-	option_i = false;
 	option_x = false;
 
 	for(int i=1;i < argc;++i)
@@ -35,9 +34,8 @@ void parseCmdLine(int argc, char **argv)
 		char c = argv[i][1];
 		switch(c)
 		{
-		case 'i':
-			option_i = true;
-			continue;
+		case 'h':
+			goto USAGE;
 		case 'l':
 			option_l = true;
 			continue;
@@ -46,8 +44,9 @@ void parseCmdLine(int argc, char **argv)
 			continue;
 		case 'v':
 			puts("\n*** C/C++ Comments Processor ***\n");
+			puts("Copyright (C) Neil Robertson 2026\n");
 			printf("Version   : %s\n",VERSION);
-			printf("Build date: %s,%s\n\n",__DATE__,__TIME__);
+			printf("Build date: %s, %s\n\n",__DATE__,__TIME__);
 			exit(0);
 		}
 
@@ -59,24 +58,17 @@ void parseCmdLine(int argc, char **argv)
 			break;
 		case 'm':
 			mode = atoi(argv[i]);
-			if (mode < 1 || mode > NUM_MODES) goto USAGE;
+			if (mode < 1 || mode > NUM_MODES)
+			{
+				fprintf(stderr,"ERROR: Invalid mode \"%s\".\n",argv[i]);
+				exit(1);
+			}
 			--mode;
 			break;
 		default:
 			goto USAGE;
 		}	
 	}
-	if (filename)
-	{
-		// If a double slash comment is in a .c file then its C99, 
-		// not C++
-		int len = strlen(filename);
-		if (len > 2 && filename[len-1] == 'c' && filename[len-2] == '.')
-			cpp_c99_str = "C99";
-		else
-			cpp_c99_str = "C++";
-	}
-	else cpp_c99_str = "C++";
 	return;
 
 	USAGE:
@@ -89,17 +81,25 @@ void parseCmdLine(int argc, char **argv)
 	       "                             4 - Output comments.\n"
 	       "                             5 - Output comments with line numbers.\n"
 	       "                             6 - Print a list of comment types and line numbers.\n"
-	       "       -i               : In mode 1 with a multi line C comment, attempt to\n"
-	       "                          indent the replacement C++ comments the same way.\n"
-	       "                          Doesn't always get it right. No effect in other modes.\n"
-	       "       -l               : In modes 4 and 5 print the entire line the comment is\n"
-	       "                          on (ie include program text). No effect in other\n"
-	       "                          modes.\n"
+	       "       -l               : Modified line processing in mode:\n"
+	       "                             1 - With a multi line C comment attempt to indent\n"
+	       "                                 the replacement C++ comments the same way.\n"
+	       "                             2 - Merge multiple contiguous (seperated only by\n"
+	       "                                 whitespace and a single newline) C++ comments\n"
+	       "                                 into a single C comment.\n"
+	       "                             3 - Don't output a blank line if there is only\n"
+	       "                                 whitespace before a C++ comment on a line. Not\n"
+	       "                                 implemented for C comments.\n"
+	       "                             4 - Print the entire line the comment is on (ie\n"
+	       "                                 include program text).\n"
+	       "                             5 - As mode 4.\n"
+	       "                             6 - No effect.\n"
 	       "       -x               : Extra info in mode:\n"
 	       "                             5 - Print line numbers for every line of a multi\n"
 	       "                                 line C comment instead of just the first.\n"
 	       "                             6 - Print header and footer.\n"
 	       "                          No effect in other modes.\n"
+	       "       -h               : Print this usage.\n"
 	       "       -v               : Print version and build info then exit.\n"
 	       "Note:\n"
 	       "   - All arguments are optional.\n"

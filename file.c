@@ -1,5 +1,9 @@
 #include "globals.h"
 
+bool skipToCPP(char *ptr);
+void codePutchar(char c);
+void printTotals(void);
+
 /*** We load the file into memory instead of just reading it direct. Using a
      pointer to the data instead of seeking in the file makes the parsing code
      simpler at the expense of the memory required ***/
@@ -10,14 +14,16 @@ void loadFile(void)
 
 	if (filename)
 	{
-		// I could memory map the file it but would mean more code and 
-		// doesn't work for stdin anyway 
+		// I could memory map the file but you can't do that with stdin
+		// so there'd need to be seperate load code for stdin and files.
 		struct stat fs;
 		if ((fd = open(filename,O_RDONLY)) == -1)
 		{
-			fprintf(stderr,"ERROR: open(): %s\n",strerror(errno));
+			fprintf(stderr,"ERROR: open(\"%s\"): %s\n",
+				filename,strerror(errno));
 			exit(1);
 		}
+		// Shouldn't fail but can on rare occasions, eg NFS issue.
 		if (fstat(fd,&fs) == -1)
 		{
 			fprintf(stderr,"ERROR: fstat(): %s\n",strerror(errno));
@@ -64,11 +70,14 @@ void parseFile(void)
 {
 	char c = 0;
 	char prev_c = 0;
-	char quotes = 0;                                                                bool escaped = false;
-
+	char quotes = 0;
+	bool escaped = false;
+	bool skip_to_cpp = (mode == MODE_CODE && option_l);
+	
 	in_c_comment = false;
 	in_cpp_comment = false;
-	print_nl = false;
+	mode_3_print_nl = true;
+	mode_45_print_nl = false;
 	print_line = false;
 	c_cnt = 0;
 	cpp_cnt = 0;
@@ -85,7 +94,10 @@ void parseFile(void)
 		puts("----  ----  -----");
 	}
 
-	for(memptr=memstart;memptr <= memend;++memptr)
+	memptr = memstart;
+	if (skip_to_cpp) skipToCPP(memstart);
+
+	for(;memptr <= memend;++memptr)
 	{
 		prev_c = c;
 		c = *memptr;
@@ -95,7 +107,6 @@ void parseFile(void)
 			line_start_ptr = memptr + 1;
 			print_line = (option_l && in_c_comment);
 		}
-
 		if (in_c_comment)
 		{
 			inCComment(c);
@@ -104,7 +115,10 @@ void parseFile(void)
 		if (in_cpp_comment)
 		{
 			inCPPComment(c);
-			continue;
+			if (!skip_to_cpp || c != '\n' || !skipToCPP(memptr+1)) 
+				continue;
+			c = *memptr;
+			prev_c = 0;
 		}
 
 		// Not yet in a comment
@@ -112,14 +126,20 @@ void parseFile(void)
 		{
 		case '\n':
 			escaped = false;
-			if (mode < MODE_COM || print_nl || quotes)
+			if (mode < MODE_COM || mode_45_print_nl || quotes)
 			{
 				putchar('\n');
-				print_nl = false;
+				mode_45_print_nl = false;
+			}
+			if (skip_to_cpp && !quotes && skipToCPP(memptr+1))
+			{
+				// Drop back because for() will increment again
+				--memptr;
+				prev_c = 0;
 			}
 			break;
 		case '\\':
-			modePutchar2(c);
+			codePutchar(c);
 			escaped = !escaped;
 			break;
 		case '\'':
@@ -127,7 +147,7 @@ void parseFile(void)
 			/* In C/C++ single quotes should only quote a single
 			   character but treat the same as double quotes for
 			   simplicity */
-			modePutchar2(c);
+			codePutchar(c);
 			if (quotes == c)
 			{
 				if (escaped)
@@ -144,7 +164,7 @@ void parseFile(void)
 			escaped = false;
 			if (quotes || memptr == memend)
 			{
-				modePutchar2(c);
+				codePutchar(c);
 				break;
 			}
 			switch(*++memptr)
@@ -156,19 +176,80 @@ void parseFile(void)
 				startCPPComment();
 				break;
 			default:
-				modePutchar2(c);
+				codePutchar(c);
 				--memptr;
 			}
 			break;
 		default:
 			escaped = false;
-			modePutchar2(c);
+			codePutchar(c);
 		}
 	}
-	if (mode == MODE_TYPE_LINENUM)
+	fflush(stdout);
+	c = *memend;
+
+	// In case we had an EOF without a newline or still in a comment...
+	switch(mode)
 	{
+	case MODE_C_TO_CPP:
+		if (in_c_comment) putchar('\n');
+		break;
+	case MODE_CPP_TO_C:
+		if (in_cpp_comment) printf(" */\n");
+		break;
+	case MODE_CODE:
+		if (!in_c_comment && !in_cpp_comment && c != '\n')
+			putchar('\n');
+		break;
+	case MODE_COM:
+	case MODE_COM_LINENUM:
+		if (mode_45_print_nl || in_cpp_comment) putchar('\n');
+		break;
+	case MODE_TYPE_LINENUM:
 		if (in_c_comment) printCCommentFromTo();
 		printTotals();
+		break;
+	default:
+		assert(0);
 	}
-	else fflush(stdout);
+}
+
+
+
+/*** See if we have nothing but whitespace then a C++ comment start ***/
+bool skipToCPP(char *ptr)
+{
+	for(;ptr < memend && isNonNLSpace(*ptr);++ptr);
+	if (ptr < memend && *ptr == '/' && *(ptr+1) == '/') 
+	{
+		mode_3_print_nl = false;
+		memptr = ptr;
+		return true;
+	}
+	mode_3_print_nl = true;
+	return false;
+}
+
+
+
+inline void codePutchar(char c)
+{
+	if (mode < MODE_COM || 
+	    (print_line && (mode == MODE_COM || mode == MODE_COM_LINENUM)))
+	{
+		putchar(c);
+	}
+}
+
+
+
+void printTotals(void)
+{
+	if (option_x)
+	{
+		if (*memend != '\n') ++linenum;
+		printf("\nTotal of %d lines out of %d consisting of %d C comments and %d C++ comments.\n\n",
+			linecnt,linenum-1,c_cnt,cpp_cnt);
+	}
+	exit(0);
 }

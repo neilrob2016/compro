@@ -10,7 +10,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#define VERSION "20260130"
+#define VERSION "20260205"
 
 #ifdef MAINFILE
 #define EXTERN
@@ -32,7 +32,6 @@ enum
 // Command line
 EXTERN char *filename;
 EXTERN int mode;
-EXTERN bool option_i;
 EXTERN bool option_l;
 EXTERN bool option_x;
 
@@ -40,7 +39,6 @@ EXTERN bool option_x;
 EXTERN char *memstart;
 EXTERN char *memend;
 EXTERN char *memptr;
-EXTERN char *cpp_c99_str;
 EXTERN char *line_start_ptr;
 EXTERN int linenum;
 EXTERN int c_start_linenum;
@@ -52,7 +50,8 @@ EXTERN int linecnt;
 EXTERN int comcnt;
 EXTERN bool in_c_comment;
 EXTERN bool in_cpp_comment;
-EXTERN bool print_nl;
+EXTERN bool mode_3_print_nl;
+EXTERN bool mode_45_print_nl;
 EXTERN bool print_line;
 
 // file.c
@@ -68,9 +67,8 @@ void printCCommentFromTo(void);
 void startCPPComment(void);
 void inCPPComment(char c);
 
-// print.c
+// support.c
 void printLineStart(void);
 void printLineNum(void);
-void printTotals(void);
-void modePutchar1(char c);
-void modePutchar2(char c);
+void commPutchar(char c);
+bool isNonNLSpace(char c);

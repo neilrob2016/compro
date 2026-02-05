@@ -1,7 +1,8 @@
 #include "globals.h"
 
+void skipWhiteSpace(void);
 void doIndent(void);
-bool notNLSpace(char c);
+bool isNonNLSpace(char c);
 
 
 void startCComment(void)
@@ -53,7 +54,7 @@ void inCComment(char c)
 		switch(mode)
 		{
 		case MODE_C_TO_CPP:
-			if (option_i)
+			if (option_l)
 				doIndent();
 			else
 				printf("\n//");
@@ -83,14 +84,14 @@ void inCComment(char c)
 
 	if (c != '*' || memptr == memend)
 	{
-		modePutchar1(c);
+		commPutchar(c);
 		return;
 	}
 
 	// Check for end of comment
 	if (*++memptr != '/')
 	{
-		modePutchar1(*--memptr);
+		commPutchar(*--memptr);
 		return;
 	}
 
@@ -100,24 +101,13 @@ void inCComment(char c)
 	switch(mode)
 	{
 	case MODE_C_TO_CPP:
-		// If following the end of the comment its just whitespace 
-		// before the newline then skip it.
-		for(char *ptr=memptr+1;ptr <= memend && isspace(*ptr);++ptr)
-		{
-			if (*ptr == '\n')
-			{
-				memptr = ptr;
-				line_start_ptr = ptr + 1;
-				break;
-			}
-		}
+		skipWhiteSpace();
 		putchar('\n');
 		break;
 	case MODE_COM:
 	case MODE_COM_LINENUM:
-		// Want to print newline at end of the line with the comment 
-		// on otherwise C comments will all appear on one line 
-		print_nl = true;
+		// Print end of line newline outside the comment
+		mode_45_print_nl = true;
 		c_end_linenum = linenum;
 		// Fall through
 	case MODE_CPP_TO_C:
@@ -128,6 +118,23 @@ void inCComment(char c)
 		break;
 	default:
 		break;
+	}
+}
+
+
+
+/*** If following the end of the comment its just whitespace before the newline
+     then skip it ***/
+void skipWhiteSpace(void)
+{
+	for(char *ptr=memptr+1;ptr <= memend && isspace(*ptr);++ptr)
+	{
+		if (*ptr == '\n')
+		{
+			memptr = ptr;
+			line_start_ptr = ptr + 1;
+			break;
+		}
 	}
 }
 
@@ -153,25 +160,17 @@ void doIndent(void)
 	char *end = memptr + c_indent_cnt;
 	for(++memptr;memptr <= end && 
 	             memptr <= memend && 
-	             notNLSpace(*memptr);++memptr)
+	             isNonNLSpace(*memptr);++memptr)
 	{
 		putchar(*memptr);
 	}
 	printf("//");
-	if (memptr < memend && notNLSpace(*memptr))
+	if (memptr < memend && isNonNLSpace(*memptr))
 	{
-		if (notNLSpace(*(memptr+1)))
+		if (isNonNLSpace(*(memptr+1)))
 			++memptr;
 		else
 			putchar(' ');
 	}
 	else --memptr;
 }
-
-
-
-inline bool notNLSpace(char c)
-{
-	return (c != '\n' && isspace(c));
-}
-
